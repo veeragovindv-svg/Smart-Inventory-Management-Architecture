@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: supermarket_db
+    environment:
+      POSTGRES_DB: inventorydb
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    restart: always
+
+  forecaster:
+    build: ./forecaster
+    container_name: supermarket_forecaster
+    ports:
+      - "8000:8000"
+    environment:
+      - PYTHONUNBUFFERED=1
+    restart: always
+
+  backend:
+    build: ./backend
+    container_name: supermarket_backend
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/inventorydb
+      - SPRING_DATASOURCE_USERNAME=postgres
+      - SPRING_DATASOURCE_PASSWORD=postgrespassword
+      - PYTHON_FORECASTER_URL=http://forecaster:8000/predict-depletion
+    depends_on:
+      - postgres
+      - forecaster
+    restart: always
+
+  frontend:
+    build: ./frontend
+    container_name: supermarket_frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=http://localhost:8080
+      - NEXT_PUBLIC_FORECASTER_URL=http://localhost:8000
+    depends_on:
+      - backend
+    restart: always
+
+volumes:
+  pgdata:
